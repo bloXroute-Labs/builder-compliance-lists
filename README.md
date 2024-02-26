@@ -40,7 +40,7 @@ The response is a JSON object with the following fields:
 <br>
 
 **Updating Compliance Lists**
-  - When the compliance list updating is enabled, the builder will update compliance lists from the remote relay each epoch after validator duties are requested, based on which lists those validators requested when registering with bloXroute.
+  - When the compliance list updating is enabled, the builder will request compliance lists from the remote relay each epoch after validator duties are requested, based on which lists those validators requested when registering with bloXroute.
     <br>
     <br>
 
