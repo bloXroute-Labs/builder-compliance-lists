@@ -1,5 +1,68 @@
 [geth readme](README.original.md)
 
+# Flashbots Builder Compliance List Example
+
+## Overview
+
+The compliance list feature allows the application to enforce restrictions on transactions based on regulatory requirements. This feature can be enabled or disabled for different relays and is configurable through the relay url startup argument.
+
+
+
+
+A Compliance List is a collection of addresses that the block builder will not include in the block.
+Lists are loaded by sending an HTTP Get request to the `/blxr/compliance_lists` endpoint on bloXroute relays using your bloXroute account auth header.
+Builders will use `list` query parameter(s) to specify which list(s) to load:
+
+`https://bloxroute.max-profit.builder.goerli.blxrbdn.com/blxr/compliance_lists?list=ofac&list=externalList`
+
+
+The response is a JSON object with the following fields:
+```azure
+{
+    "ofac": {
+        "0x1f9090aaE28b8a3dCeaDf281B0F12828e676c326": {},
+        "0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97": {}
+    },
+    "externalList": {
+        "0x0e33b1c214463062753aD849a28E54667e0c87c2": {},
+        "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5": {}
+    }
+}
+```
+
+## Workflow
+
+1. **Configuration**:
+  - Requesting compliance lists from relays is configurable for each remote relay by adding `;complianceLists=true` to the relay url in the `builder.remote_relay_endpoint` or `builder.secondary_remote_relay_endpoints` startup arguments:
+```
+--builder.remote_relay_endpoint https://bloxroute.max-profit.builder.goerli.blxrbdn.com;complianceLists=true
+  - ```
+
+2. **Updating Compliance Lists**:
+  - When the compliance list updating is enabled, the builder will update compliance lists from the remote relay each epoch after validator duties are requested, based on which lists those validators requested when registering with bloXroute.
+
+3. **Building Blocks**:
+- When building a block, a check is made to see if a compliance list is specified for the current validator for the block.
+- The `applyTransaction`, `simulateBundles`, and `computeBundleGas` methods will all use the compliance list to check if any of the transactions interact with blacklisted addresses.
+
+
+4. **Validation/Simulation**:
+  - When a block is submitted for validation, the `validateBlock` method in the `BlockValidationAPI` struct will check if a compliance list is specified for the current validator.
+  - If a compliance list is specified, the `validateBlock` will verify if the coinbase address and fee recipient address are not blacklisted, and that none of the transactions in the block interact with blacklisted addresses.
+<br>
+    <br>
+
+---
+
+
+
+
+
+
+
+
+
+
 # Flashbots Block Builder
 
 This project implements the Flashbots block builder, based on go-ethereum (geth).
