@@ -2,12 +2,15 @@
 
 # Flashbots Builder Compliance List Example
 
+Compliance list code is found in the `deneb-compliance-lists-example` branch.
+
+The PR comparing the differences between the original Flashbots `deneb` branch is here:
+<br>
+https://github.com/bloXroute-Labs/builder-compliance-lists/pull/1
+
 ## Overview
 
 The compliance list feature allows the application to enforce restrictions on transactions based on regulatory requirements. This feature can be enabled or disabled for different relays and is configurable through the relay url startup argument.
-
-
-
 
 A Compliance List is a collection of addresses that the block builder will not include in the block.
 Lists are loaded by sending an HTTP Get request to the `/blxr/compliance_lists` endpoint on bloXroute relays using your bloXroute account auth header.
