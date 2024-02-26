@@ -46,7 +46,7 @@ The response is a JSON object (a map of maps) with the following fields:
 
 **Building Blocks**
 - When building a block, a check is made to see if a compliance list is specified for the current validator for the block.
-- The `applyTransaction`, `simulateBundles`, and `computeBundleGas` methods will all use the compliance list to check if any of the transactions interact with blacklisted addresses.
+- The `applyTransaction`, `simulateBundles`, and `computeBundleGas` methods will all use the relevant compliance list to check if any of the transactions interact with blacklisted addresses.
   <br>
   <br>
 
