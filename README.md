@@ -56,12 +56,11 @@ The response is a JSON object (a map of maps) with the following fields:
   <br>
   <br>
 
+## Compliance list diagram
+
+![compliance list diagram](docs/builder/compliance-list-diagram.png "Compliance list diagram")
+
 ---
-
-
-
-
-
 
 
 
