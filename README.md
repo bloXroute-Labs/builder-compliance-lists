@@ -54,7 +54,7 @@ The response is a JSON object (a map of maps) with the following fields:
   - When a block is submitted for validation, the `validateBlock` method in the `BlockValidationAPI` struct will check if a compliance list is specified for the current validator.
   - If a compliance list is specified, the `validateBlock` will verify if the coinbase address and fee recipient address are not blacklisted, and that none of the transactions in the block interact with blacklisted addresses.
   <br>
-  <br>
+  
 
 ## Compliance list diagram
 
