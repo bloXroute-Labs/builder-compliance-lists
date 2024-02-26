@@ -32,25 +32,25 @@ The response is a JSON object with the following fields:
 
 ## Workflow
 
-**Configuration**:
+**Configuration**
   - Requesting compliance lists from relays is configurable for each remote relay by adding `;complianceLists=true` to the relay url in the `builder.remote_relay_endpoint` or `builder.secondary_remote_relay_endpoints` startup arguments:
 ```
 --builder.remote_relay_endpoint https://bloxroute.max-profit.builder.goerli.blxrbdn.com;complianceLists=true
 ```
 <br>
 
-**Updating Compliance Lists**:
+**Updating Compliance Lists**
   - When the compliance list updating is enabled, the builder will update compliance lists from the remote relay each epoch after validator duties are requested, based on which lists those validators requested when registering with bloXroute.
     <br>
     <br>
 
-**Building Blocks**:
+**Building Blocks**
 - When building a block, a check is made to see if a compliance list is specified for the current validator for the block.
 - The `applyTransaction`, `simulateBundles`, and `computeBundleGas` methods will all use the compliance list to check if any of the transactions interact with blacklisted addresses.
   <br>
   <br>
 
-**Validation/Simulation**:
+**Validation/Simulation**
   - When a block is submitted for validation, the `validateBlock` method in the `BlockValidationAPI` struct will check if a compliance list is specified for the current validator.
   - If a compliance list is specified, the `validateBlock` will verify if the coinbase address and fee recipient address are not blacklisted, and that none of the transactions in the block interact with blacklisted addresses.
   <br>
