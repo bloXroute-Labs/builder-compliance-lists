@@ -16,7 +16,7 @@ Builders will use `list` query parameter(s) to specify which list(s) to load:
 `https://bloxroute.max-profit.builder.goerli.blxrbdn.com/blxr/compliance_lists?list=ofac&list=externalList`
 
 
-The response is a JSON object with the following fields:
+The response is a JSON object (a map of maps) with the following fields:
 ```azure
 {
     "ofac": {
