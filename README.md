@@ -36,7 +36,7 @@ The response is a JSON object with the following fields:
   - Requesting compliance lists from relays is configurable for each remote relay by adding `;complianceLists=true` to the relay url in the `builder.remote_relay_endpoint` or `builder.secondary_remote_relay_endpoints` startup arguments:
 ```
 --builder.remote_relay_endpoint https://bloxroute.max-profit.builder.goerli.blxrbdn.com;complianceLists=true
-  - ```
+```
 
 2. **Updating Compliance Lists**:
   - When the compliance list updating is enabled, the builder will update compliance lists from the remote relay each epoch after validator duties are requested, based on which lists those validators requested when registering with bloXroute.
