@@ -65,7 +65,7 @@ The response is a JSON object (a map of maps) with the following fields:
 
 ---
 
-# Compliance list building
+# Compliance List Providers
 
 Quick guide for compliance and security companies for providing a list to be used for bloXroute's Compliance List marketplace:
 
