@@ -69,7 +69,7 @@ The response is a JSON object (a map of maps) with the following fields:
 
 The following is a quick guide for compliance and security companies for providing a list to be used for bloXroute's Compliance List marketplace.
 
-Provider can set an API endpoint that the bloXroute relays will intermittently poll and keep track of list updates.
+Provider can set an API endpoint that the bloXroute relays will intermittently query to keep track of list updates.
 
 1) Response format is a JSON map of addresses to empty object:
 
