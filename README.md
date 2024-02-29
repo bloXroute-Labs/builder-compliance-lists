@@ -65,9 +65,33 @@ The response is a JSON object (a map of maps) with the following fields:
 
 ---
 
+# Compliance list building
 
+Quick guide for compliance and security companies for providing a list to be used for bloXroute's Compliance List marketplace:
 
+1) Response format is a JSON map of addresses to empty object:
 
+``` json
+{
+  "0x0": {},
+  "0x1": {},
+  "0x2": {}
+}
+```
+
+2) Be exposed over a rest API
+
+```
+curl https://bloxroute.regulated.blxrbdn.com/blxr/free_compliance_list
+```
+
+3) Simple auth if necessary (bearer token or api key only)
+
+```
+curl https://bloxroute.regulated.blxrbdn.com/blxr/pro_compliance_list?access_token=123
+```
+
+---
 
 # Flashbots Block Builder
 
