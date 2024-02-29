@@ -79,7 +79,7 @@ Quick guide for compliance and security companies for providing a list to be use
 }
 ```
 
-2) Be exposed over a rest API
+2) Exposed over a rest API
 
 ```
 curl https://bloxroute.regulated.blxrbdn.com/blxr/free_compliance_list
