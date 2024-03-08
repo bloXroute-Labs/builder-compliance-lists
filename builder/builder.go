@@ -22,6 +22,7 @@ import (
 	"github.com/attestantio/go-eth2-client/spec/phase0"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	blockvalidation "github.com/ethereum/go-ethereum/eth/block-validation"
 	"github.com/ethereum/go-ethereum/flashbotsextra"
@@ -32,6 +33,8 @@ import (
 	"github.com/flashbots/go-boost-utils/utils"
 	"github.com/holiman/uint256"
 	"golang.org/x/time/rate"
+
+	"github.com/cenkalti/backoff/v4"
 )
 
 const (
@@ -67,6 +70,7 @@ type IBuilder interface {
 
 type Builder struct {
 	ds                          flashbotsextra.IDatabaseService
+	blockConsumer               flashbotsextra.BlockConsumer
 	relay                       IRelay
 	eth                         IEthereumService
 	dryRun                      bool
@@ -94,6 +98,7 @@ type Builder struct {
 type BuilderArgs struct {
 	sk                            *bls.SecretKey
 	ds                            flashbotsextra.IDatabaseService
+	blockConsumer                 flashbotsextra.BlockConsumer
 	relay                         IRelay
 	builderSigningDomain          phase0.Domain
 	builderBlockResubmitInterval  time.Duration
@@ -159,6 +164,7 @@ func NewBuilder(args BuilderArgs) (*Builder, error) {
 	slotCtx, slotCtxCancel := context.WithCancel(context.Background())
 	return &Builder{
 		ds:                            args.ds,
+		blockConsumer:                 args.blockConsumer,
 		relay:                         args.relay,
 		eth:                           args.eth,
 		dryRun:                        args.dryRun,
@@ -280,7 +286,7 @@ func (b *Builder) onSealedBlock(opts SubmitBlockOpts) error {
 			log.Error("could not validate block", "version", dataVersion.String(), "err", err)
 		}
 	} else {
-		go b.ds.ConsumeBuiltBlock(opts.Block, opts.BlockValue, opts.OrdersClosedAt, opts.SealedAt, opts.CommitedBundles, opts.AllBundles, opts.UsedSbundles, &blockBidMsg)
+		go b.processBuiltBlock(opts.Block, opts.BlockValue, opts.OrdersClosedAt, opts.SealedAt, opts.CommitedBundles, opts.AllBundles, opts.UsedSbundles, &blockBidMsg)
 		err = b.relay.SubmitBlock(versionedBlockRequest, opts.ValidatorData)
 		if err != nil {
 			log.Error("could not submit block", "err", err, "verion", dataVersion, "#commitedBundles", len(opts.CommitedBundles))
@@ -344,6 +350,20 @@ func (b *Builder) getBlockRequest(executableData *engine.ExecutionPayloadEnvelop
 	return &versionedBlockRequest, err
 }
 
+func (b *Builder) processBuiltBlock(block *types.Block, blockValue *big.Int, ordersClosedAt time.Time, sealedAt time.Time, commitedBundles []types.SimulatedBundle, allBundles []types.SimulatedBundle, usedSbundles []types.UsedSBundle, bidTrace *builderApiV1.BidTrace) {
+	back := backoff.NewExponentialBackOff()
+	back.MaxInterval = 3 * time.Second
+	back.MaxElapsedTime = 12 * time.Second
+	err := backoff.Retry(func() error {
+		return b.blockConsumer.ConsumeBuiltBlock(block, blockValue, ordersClosedAt, sealedAt, commitedBundles, allBundles, usedSbundles, bidTrace)
+	}, back)
+	if err != nil {
+		log.Error("could not consume built block", "err", err)
+	} else {
+		log.Info("successfully relayed block data to consumer")
+	}
+}
+
 func (b *Builder) OnPayloadAttribute(attrs *types.BuilderPayloadAttributes) error {
 	if attrs == nil {
 		return nil
@@ -354,8 +374,13 @@ func (b *Builder) OnPayloadAttribute(attrs *types.BuilderPayloadAttributes) erro
 		return fmt.Errorf("could not get validator while submitting block for slot %d - %w", attrs.Slot, err)
 	}
 
+	parentBlock := b.eth.GetBlockByHash(attrs.HeadHash)
+	if parentBlock == nil {
+		return fmt.Errorf("parent block hash not found in block tree given head block hash %s", attrs.HeadHash)
+	}
+
 	attrs.SuggestedFeeRecipient = [20]byte(vd.FeeRecipient)
-	attrs.GasLimit = vd.GasLimit
+	attrs.GasLimit = core.CalcGasLimit(parentBlock.GasLimit(), vd.GasLimit)
 	attrs.ComplianceList = vd.ComplianceList
 
 	proposerPubkey, err := utils.HexToPubkey(string(vd.Pubkey))
@@ -365,11 +390,6 @@ func (b *Builder) OnPayloadAttribute(attrs *types.BuilderPayloadAttributes) erro
 
 	if !b.eth.Synced() {
 		return errors.New("backend not Synced")
-	}
-
-	parentBlock := b.eth.GetBlockByHash(attrs.HeadHash)
-	if parentBlock == nil {
-		return fmt.Errorf("parent block hash not found in block tree given head block hash %s", attrs.HeadHash)
 	}
 
 	b.slotMu.Lock()

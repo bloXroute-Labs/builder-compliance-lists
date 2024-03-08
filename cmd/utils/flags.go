@@ -348,6 +348,12 @@ var (
 		Value:    ethconfig.Defaults.TxPool.Lifetime,
 		Category: flags.TxPoolCategory,
 	}
+	TxPoolPrivateLifetimeFlag = &cli.DurationFlag{
+		Name:     "txpool.privatelifetime",
+		Usage:    "Maximum amount of time private transactions are withheld from public broadcasting",
+		Value:    ethconfig.Defaults.TxPool.PrivateTxLifetime,
+		Category: flags.TxPoolCategory,
+	}
 	// Blob transaction pool settings
 	BlobPoolDataDirFlag = &cli.StringFlag{
 		Name:     "blobpool.datadir",
@@ -795,6 +801,12 @@ var (
 	BuilderEnableCancellations = &cli.BoolFlag{
 		Name:     "builder.cancellations",
 		Usage:    "Enable cancellations for the builder",
+		Category: flags.BuilderCategory,
+	}
+
+	BuilderBlockProcessorURL = &cli.StringFlag{
+		Name:     "builder.block_processor_url",
+		Usage:    "RPC URL for the block processor",
 		Category: flags.BuilderCategory,
 	}
 
@@ -1625,6 +1637,8 @@ func SetBuilderConfig(ctx *cli.Context, cfg *builder.Config) {
 	cfg.DiscardRevertibleTxOnErr = ctx.Bool(BuilderDiscardRevertibleTxOnErr.Name)
 	cfg.EnableCancellations = ctx.IsSet(BuilderEnableCancellations.Name)
 	cfg.BuilderRateLimitResubmitInterval = ctx.String(BuilderBlockResubmitInterval.Name)
+
+	cfg.BlockProcessorURL = ctx.String(BuilderBlockProcessorURL.Name)
 }
 
 // SetNodeConfig applies node-related command line flags to the config.
@@ -1775,6 +1789,9 @@ func setTxPool(ctx *cli.Context, cfg *legacypool.Config) {
 	}
 	if ctx.IsSet(TxPoolLifetimeFlag.Name) {
 		cfg.Lifetime = ctx.Duration(TxPoolLifetimeFlag.Name)
+	}
+	if ctx.IsSet(TxPoolPrivateLifetimeFlag.Name) {
+		cfg.PrivateTxLifetime = ctx.Duration(TxPoolPrivateLifetimeFlag.Name)
 	}
 }
 

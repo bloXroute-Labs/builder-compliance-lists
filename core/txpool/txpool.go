@@ -143,7 +143,7 @@ func (p *TxPool) reserver(id int, subpool SubPool) AddressReserver {
 					log.Error("pool attempted to reserve already-owned address", "address", addr)
 					return nil // Ignore fault to give the pool a chance to recover while the bug gets fixed
 				}
-				return errors.New("address already reserved")
+				return ErrAlreadyReserved
 			}
 			p.reservations[addr] = subpool
 			if metrics.Enabled {
@@ -357,7 +357,7 @@ func (p *TxPool) Add(txs []*types.Transaction, local bool, sync bool, private bo
 	// back the errors into the original sort order.
 	errsets := make([][]error, len(p.subpools))
 	for i := 0; i < len(p.subpools); i++ {
-		errsets[i] = p.subpools[i].Add(txsets[i], local, sync)
+		errsets[i] = p.subpools[i].Add(txsets[i], local, sync, private)
 	}
 	errs := make([]error, len(txs))
 	for i, split := range splits {
@@ -501,6 +501,15 @@ func (p *TxPool) Sync() error {
 	case <-p.term:
 		return errors.New("pool already terminated")
 	}
+}
+
+func (p *TxPool) IsPrivateTxHash(hash common.Hash) bool {
+	for _, subpool := range p.subpools {
+		if subpool.IsPrivateTxHash(hash) {
+			return true
+		}
+	}
+	return false
 }
 
 // MevBundle methods
@@ -654,6 +663,7 @@ func resolveCancellableBundles(lubCh chan []types.LatestUuidBundle, errCh chan e
 	log.Trace("Processing uuid bundles", "uuidBundles", uuidBundles)
 
 	lubs := <-lubCh
+LubLoop:
 	for _, lub := range lubs {
 		ubk := uuidBundleKey{lub.Uuid, lub.SigningAddress}
 		bundles, found := uuidBundles[ubk]
@@ -661,6 +671,18 @@ func resolveCancellableBundles(lubCh chan []types.LatestUuidBundle, errCh chan e
 			log.Trace("missing uuid bundle", "ubk", ubk)
 			continue
 		}
+
+		// If lub has bundle_uuid set, and we can find corresponding bundle we prefer it, if not we fallback to bundle_hash equivalence
+		if lub.BundleUUID != types.EmptyUUID {
+			for _, bundle := range bundles {
+				if bundle.ComputeUUID() == lub.BundleUUID {
+					log.Trace("adding uuid bundle", "bundle hash", bundle.Hash.String(), "lub", lub)
+					currentCancellableBundles = append(currentCancellableBundles, bundle)
+					continue LubLoop
+				}
+			}
+		}
+
 		for _, bundle := range bundles {
 			if bundle.Hash == lub.BundleHash {
 				log.Trace("adding uuid bundle", "bundle hash", bundle.Hash.String(), "lub", lub)

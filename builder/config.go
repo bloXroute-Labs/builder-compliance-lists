@@ -29,6 +29,7 @@ type Config struct {
 	DiscardRevertibleTxOnErr         bool          `toml:",omitempty"`
 	EnableCancellations              bool          `toml:",omitempty"`
 	BloxrouteAuthHeader              string        `toml:",omitempty"`
+	BlockProcessorURL                string        `toml:",omitempty"`
 }
 
 // DefaultConfig is the default config for the builder.
