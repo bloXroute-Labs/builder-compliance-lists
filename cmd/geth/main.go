@@ -79,6 +79,7 @@ var (
 		utils.TxPoolAccountQueueFlag,
 		utils.TxPoolGlobalQueueFlag,
 		utils.TxPoolLifetimeFlag,
+		utils.TxPoolPrivateLifetimeFlag,
 		utils.BlobPoolDataDirFlag,
 		utils.BlobPoolDataCapFlag,
 		utils.BlobPoolPriceBumpFlag,
@@ -180,6 +181,7 @@ var (
 		utils.BuilderSubmissionOffset,
 		utils.BuilderDiscardRevertibleTxOnErr,
 		utils.BuilderEnableCancellations,
+		utils.BuilderBlockProcessorURL,
 	}
 
 	rpcFlags = []cli.Flag{

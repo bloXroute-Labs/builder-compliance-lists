@@ -256,6 +256,15 @@ func Register(stack *node.Node, backend *eth.Ethereum, cfg *Config) error {
 		submissionOffset = SubmissionOffsetFromEndOfSlotSecondsDefault
 	}
 
+	var blockConsumer flashbotsextra.BlockConsumer
+	rpcURL := cfg.BlockProcessorURL
+	if rpcURL != "" {
+		blockConsumer = flashbotsextra.NewRpcBlockClient(rpcURL)
+	} else {
+		log.Warn("Block consumer url is empty. Built block data reporting is essentially disabled")
+		blockConsumer = flashbotsextra.NilDbService{}
+	}
+
 	// TODO: move to proper flags
 	var ds flashbotsextra.IDatabaseService
 	dbDSN := os.Getenv("FLASHBOTS_POSTGRES_DSN")
@@ -288,6 +297,7 @@ func Register(stack *node.Node, backend *eth.Ethereum, cfg *Config) error {
 
 	builderArgs := BuilderArgs{
 		sk:                            builderSk,
+		blockConsumer:                 blockConsumer,
 		ds:                            ds,
 		dryRun:                        cfg.DryRun,
 		eth:                           ethereumService,
