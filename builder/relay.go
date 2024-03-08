@@ -281,7 +281,7 @@ func (r *RemoteRelay) getComplianceListsMapFromRelay(listsToRequest map[string]b
 	}
 
 	var dst GetComplianceListRelayResponse
-	code, err := SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodGet, url, nil, dst, r.config.AuthHeader)
+	code, err := SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodGet, url, nil, &dst, r.config.AuthHeader)
 	if err != nil {
 		return nil, err
 	}
