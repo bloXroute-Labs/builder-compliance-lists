@@ -65,5 +65,5 @@ type RelayConfig struct {
 	SszEnabled             bool
 	GzipEnabled            bool
 	ComplianceListsEnabled bool
-	AuthHeader             string
+	BloxrouteAuthHeader    string
 }
