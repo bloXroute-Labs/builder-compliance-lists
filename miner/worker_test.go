@@ -695,23 +695,25 @@ func testBundles(t *testing.T) {
 	}
 }
 
-func TestGreedyAlgosComplianceList(t *testing.T) {
+func TestGreedyComplianceList(t *testing.T) {
 	algos := []AlgoType{ALGO_GREEDY, ALGO_GREEDY_BUCKETS, ALGO_GREEDY_MULTISNAP, ALGO_GREEDY_BUCKETS_MULTISNAP}
 	expectations := make(map[string]int)
-	expectations["empty"] = 3
-	expectations["blacklistSender"] = 2
-	expectations["blacklistTo"] = 1
+	expectations["empty"] = 4
+	expectations["blacklistSender"] = 3
+	expectations["blacklistTo"] = 2
+	expectations["blacklist0xff"] = 3
 
 	for complianceListName, txCount := range expectations {
 		for _, algo := range algos {
 			//sender, to should be checked in the compliance list
 			statedb, chData, signers := genTestSetup(GasLimit)
-
-			tx1 := signers.signTx(1, 21000, big.NewInt(1), big.NewInt(1), signers.addresses[3], big.NewInt(0), []byte{})
-			tx2 := signers.signTx(2, 21000, big.NewInt(1), big.NewInt(1), signers.addresses[4], big.NewInt(0), []byte{})
-			tx3 := signers.signTx(3, 21000, big.NewInt(1), big.NewInt(1), signers.addresses[5], big.NewInt(0), []byte{})
+			blacklistedSigner := signers.addresses[1]
+			tx1 := signers.signTx(1, 21000, big.NewInt(1), big.NewInt(1), signers.addresses[5], big.NewInt(0), []byte{})
+			tx2 := signers.signTx(2, 21000, big.NewInt(1), big.NewInt(1), signers.addresses[6], big.NewInt(0), []byte{})
+			tx3 := signers.signTx(3, 21000, big.NewInt(1), big.NewInt(1), signers.addresses[7], big.NewInt(0), []byte{})
+			tx4 := signers.signCreate(4, 100000, big.NewInt(1), big.NewInt(1), big.NewInt(100), contractSend0xff)
 			txs := make(map[common.Address][]*txpool.LazyTransaction)
-			txs[signers.addresses[1]] = []*txpool.LazyTransaction{{
+			txs[blacklistedSigner] = []*txpool.LazyTransaction{{
 				Hash:      tx1.Hash(),
 				Tx:        tx1,
 				Time:      tx1.Time(),
@@ -735,14 +737,23 @@ func TestGreedyAlgosComplianceList(t *testing.T) {
 				GasTipCap: uint256.MustFromBig(tx3.GasTipCap()),
 				GasPrice:  uint256.MustFromBig(tx3.GasPrice()),
 			}}
+			txs[signers.addresses[4]] = []*txpool.LazyTransaction{{
+				Hash:      tx4.Hash(),
+				Tx:        tx4,
+				Time:      tx4.Time(),
+				GasFeeCap: uint256.MustFromBig(tx4.GasFeeCap()),
+				GasTipCap: uint256.MustFromBig(tx4.GasTipCap()),
+				GasPrice:  uint256.MustFromBig(tx4.GasPrice()),
+			}}
 
 			ofac.UpdateComplianceLists(map[string]ofac.ComplianceList{
 				"empty":           {},
-				"blacklistSender": {signers.addresses[1]: {}},
+				"blacklistSender": {blacklistedSigner: {}},
 				"blacklistTo":     {*tx2.To(): {}, *tx3.To(): {}},
+				"blacklist0xff":   {common.HexToAddress("0xff"): {}},
 			})
 
-			env := newEnvironment(chData, statedb, signers.addresses[0], 100000, big.NewInt(1))
+			env := newEnvironment(chData, statedb, signers.addresses[0], 200000, big.NewInt(1))
 
 			var result *environment
 			switch algo {
