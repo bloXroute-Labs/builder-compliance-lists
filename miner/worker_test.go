@@ -695,7 +695,7 @@ func testBundles(t *testing.T) {
 	}
 }
 
-func TestGreedyComplianceList(t *testing.T) {
+func TestGreedyAlgosComplianceList(t *testing.T) {
 	algos := []AlgoType{ALGO_GREEDY, ALGO_GREEDY_BUCKETS, ALGO_GREEDY_MULTISNAP, ALGO_GREEDY_BUCKETS_MULTISNAP}
 	expectations := make(map[string]int)
 	expectations["empty"] = 4
