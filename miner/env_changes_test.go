@@ -322,7 +322,7 @@ func TestBlacklistSnaps(t *testing.T) {
 		t.Fatal("can't create env changes", err)
 	}
 
-	ofac.UpdateComplianceLists(map[string]ofac.ComplianceList{
+	ofac.UpdateComplianceLists(ofac.ComplianceRegistry{
 		"blacklist": {
 			signers.addresses[3]: {},
 		},

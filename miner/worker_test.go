@@ -746,7 +746,7 @@ func TestGreedyAlgosComplianceList(t *testing.T) {
 				GasPrice:  uint256.MustFromBig(tx4.GasPrice()),
 			}}
 
-			ofac.UpdateComplianceLists(map[string]ofac.ComplianceList{
+			ofac.UpdateComplianceLists(ofac.ComplianceRegistry{
 				"empty":           {},
 				"blacklistSender": {blacklistedSigner: {}},
 				"blacklistTo":     {*tx2.To(): {}, *tx3.To(): {}},

@@ -91,10 +91,10 @@ func NewAccessVerifierFromFile(path string) (*AccessVerifier, error) {
 }
 
 func NewAccessVerifierWithComplianceList(listName string) *AccessVerifier {
-	list, found := ofac.ComplianceLists[listName]
+	list, found := ofac.ComplianceRegistries[listName]
 	if !found {
 		log.Warn("compliance list not found, using OFAC list as a backup", "list", listName)
-		list = ofac.ComplianceLists[ofac.OFAC]
+		list = ofac.ComplianceRegistries[ofac.OFAC]
 	}
 
 	return &AccessVerifier{
