@@ -19,7 +19,7 @@ var (
 
 	SanctionListLock = sync.RWMutex{}
 
-	ComplianceLists = map[string]ComplianceList{
+	ComplianceRegistries = ComplianceRegistry{
 		OFAC: {
 			common.HexToAddress("0x8576acc5c05d6ce88f4e49bf65bdf0c62f91353c"): {},
 			common.HexToAddress("0x901bb9583b24d97e995513c6778dc6888ab6870e"): {},
@@ -176,25 +176,25 @@ var (
 	}
 )
 
-func UpdateComplianceLists(newMap map[string]ComplianceList) {
+func UpdateComplianceLists(newRegistry ComplianceRegistry) {
 	SanctionListLock.Lock()
 	defer SanctionListLock.Unlock()
 
-	for name, complianceList := range newMap {
-		ComplianceLists[name] = complianceList
-		log.Info("compliance list updated", "list", name, "addressCount", len(complianceList))
+	for name, complianceList := range newRegistry {
+		ComplianceRegistries[name] = complianceList
+		log.Info("compliance list updated from relay", "list", name, "addressCount", len(complianceList))
 	}
 }
 
-func getComplianceList(complianceListName string) map[common.Address]struct{} {
+func getComplianceList(complianceListName string) ComplianceMap {
 	if complianceListName != "" {
-		_, found := ComplianceLists[complianceListName]
+		_, found := ComplianceRegistries[complianceListName]
 		if found {
-			return ComplianceLists[complianceListName]
+			return ComplianceRegistries[complianceListName]
 		}
-		log.Warn("compliance list not found, using OFAC list as a backup", "list", ComplianceLists[OFAC])
+		log.Warn("compliance list not found, using OFAC list as a backup", "list", ComplianceRegistries[OFAC])
 	}
-	return ComplianceLists[OFAC]
+	return ComplianceRegistries[OFAC]
 }
 
 // CheckCompliance checks if the given addresses are in the compliance list and returns true if they do not exist in the list

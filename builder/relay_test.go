@@ -1,12 +1,17 @@
 package builder
 
 import (
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/attestantio/go-eth2-client/spec/bellatrix"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ofac"
+	"github.com/goccy/go-json"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/require"
 )
@@ -125,4 +130,48 @@ func TestRemoteRelay(t *testing.T) {
 	vd, err = relay.GetValidatorForSlot(156)
 	require.NoError(t, err)
 	require.Equal(t, expectedValidator_156, vd)
+}
+
+func TestComplianceListDecode(t *testing.T) {
+	const (
+		ofacListName     = "ofac"
+		ofacListAddressA = "0x0e33b1c214463062753aD849a28E54667e0c87c2"
+		ofacListAddressB = "0x95222290DD7278Aa3Ddd389Cc1E1d165CC4BAfe5"
+
+		externalListName     = "externalList"
+		externalListAddressA = "0x1f9090aaE28b8a3dCeaDf281B0F12828e676c326"
+		externalListAddressB = "0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97"
+	)
+
+	relayMap := map[string]map[string]struct{}{
+		ofacListName: {
+			ofacListAddressA: {},
+			ofacListAddressB: {},
+		},
+		externalListName: {
+			externalListAddressA: {},
+			externalListAddressB: {},
+		},
+	}
+
+	rawRelayBytes, err := json.Marshal(relayMap)
+	require.NoError(t, err)
+	log.Println(string(rawRelayBytes))
+
+	var complianceRegistry ofac.ComplianceRegistry
+
+	err = json.Unmarshal(rawRelayBytes, &complianceRegistry)
+	require.NoError(t, err)
+
+	for key, relayList := range relayMap {
+		builderList, found := complianceRegistry[key]
+		require.True(t, found)
+
+		for address := range relayList {
+			ethAddress := common.HexToAddress(address)
+			_, found = builderList[ethAddress]
+			require.True(t, found)
+			require.Equal(t, strings.ToLower(address), strings.ToLower(ethAddress.String()))
+		}
+	}
 }

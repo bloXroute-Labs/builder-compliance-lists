@@ -465,7 +465,7 @@ func TestBlacklist(t *testing.T) {
 
 	beforeRoot := statedb.IntermediateRoot(true)
 
-	blacklist := map[string]ofac.ComplianceList{
+	blacklist := ofac.ComplianceRegistry{
 		"blacklist": {
 			signers.addresses[3]: {},
 		},

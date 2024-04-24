@@ -72,8 +72,6 @@ type GetValidatorRelayResponse []struct {
 	ComplianceList string `json:"compliance_list"`
 }
 
-type GetComplianceListRelayResponse map[string]ofac.ComplianceList
-
 func (r *RemoteRelay) updateValidatorsMap(currentSlot uint64, retries int) error {
 	r.validatorsLock.Lock()
 	if r.validatorSyncOngoing {
@@ -124,11 +122,11 @@ func (r *RemoteRelay) updateComplianceLists(currentSlot uint64, retries int) err
 	}
 
 	log.Info("requesting compliance lists", "currentSlot", currentSlot)
-	newMap, err := r.getComplianceListsMapFromRelay(listsToRequest)
+	newRegistry, err := r.getComplianceListsMapFromRelay(listsToRequest)
 	for err != nil && retries > 0 {
 		log.Error("could not get compliance lists from relay, retrying", "err", err)
 		time.Sleep(time.Second)
-		newMap, err = r.getComplianceListsMapFromRelay(listsToRequest)
+		newRegistry, err = r.getComplianceListsMapFromRelay(listsToRequest)
 		retries -= 1
 	}
 	if err != nil {
@@ -136,9 +134,9 @@ func (r *RemoteRelay) updateComplianceLists(currentSlot uint64, retries int) err
 		return err
 	}
 
-	ofac.UpdateComplianceLists(newMap)
+	ofac.UpdateComplianceLists(newRegistry)
 
-	log.Info("Updated compliance lists", "count", len(newMap), "slot", currentSlot)
+	log.Info("Updated compliance lists", "count", len(newRegistry), "slot", currentSlot)
 	return nil
 }
 
@@ -269,9 +267,8 @@ func (r *RemoteRelay) getSlotValidatorMapFromRelay() (map[uint64]ValidatorData, 
 	return res, nil
 }
 
-func (r *RemoteRelay) getComplianceListsMapFromRelay(listsToRequest map[string]bool) (GetComplianceListRelayResponse, error) {
+func (r *RemoteRelay) getComplianceListsMapFromRelay(listsToRequest map[string]bool) (ofac.ComplianceRegistry, error) {
 	url := fmt.Sprintf("%v/blxr/compliance_lists?", r.config.Endpoint)
-
 	// add a query parameter for each list we need to request
 	for key := range listsToRequest {
 		if strings.Contains(url, "list=") {
@@ -280,8 +277,8 @@ func (r *RemoteRelay) getComplianceListsMapFromRelay(listsToRequest map[string]b
 		url += fmt.Sprintf("list=%s", key)
 	}
 
-	var dst GetComplianceListRelayResponse
-	code, err := SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodGet, url, nil, &dst, r.config.BloxrouteAuthHeader)
+	dst := make(ofac.ComplianceRegistry)
+	code, err := SendHTTPRequestSSZResponse(context.TODO(), *http.DefaultClient, http.MethodGet, url, nil, &dst, r.config.BloxrouteAuthHeader)
 	if err != nil {
 		return nil, err
 	}
