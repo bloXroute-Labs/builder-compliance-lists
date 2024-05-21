@@ -86,7 +86,7 @@ Providers can set up an API endpoint that the bloXroute relays will intermittent
 2) Exposed over a rest API
 
 ```
-curl https://<YOUR_URL>/<ENDPOINTNAME>
+curl https://<YOUR_URL>/<PATH>
 ```
 for example:
 ```
@@ -96,15 +96,23 @@ curl https://newprovidersite.com/free_list
 3) Simple auth if necessary (bearer token or api key only)
 
 ```
-curl https://<YOUR_URL>/<ENDPOINTNAME>?access_token=123
+curl https://<YOUR_URL>/<PATH>?<QUERY_PARAMS>=<ACCESS TOKEN>
 ```
 for example:
 ```
 curl https://newprovidersite.com/pro_compliance_list?access_token=123
 ```
 
+Note: you can instead use an "Authorization" header.
+<br>
+<br>
+4. You will need to give us (as well as any validators who want to use your list) the name you wish to be used for the list.
+   
+<br>
 
 To summarize, providers just need to set up an endpoint that serves their compliance list as a JSON map of addresses. 
+
+<br>
 
 ---
 
