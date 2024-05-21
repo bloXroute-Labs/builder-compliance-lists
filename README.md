@@ -103,6 +103,9 @@ for example:
 curl https://newprovidersite.com/pro_compliance_list?access_token=123
 ```
 
+
+To summarize, providers just need to set up an endpoint that serves their compliance list as a JSON map of addresses. 
+
 ---
 
 # Flashbots Block Builder
