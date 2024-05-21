@@ -100,7 +100,7 @@ curl https://<YOUR_URL>/<ENDPOINTNAME>?access_token=123
 ```
 for example:
 ```
-curl https://newprovidersite.io/pro_compliance_list?access_token=123
+curl https://newprovidersite.com/pro_compliance_list?access_token=123
 ```
 
 ---
