@@ -10,6 +10,8 @@ https://github.com/bloXroute-Labs/builder-compliance-lists/pull/3
 
 ## Overview
 
+Instructions for list providers are in the **Compliance List Providers** section below.
+
 The compliance list feature allows the application to enforce restrictions on transactions based on regulatory requirements. This feature can be enabled or disabled for different relays and is configurable through the relay url startup argument.
 
 A Compliance List is a collection of addresses that the block builder will not include in the block.
@@ -84,14 +86,25 @@ Providers can set up an API endpoint that the bloXroute relays will intermittent
 2) Exposed over a rest API
 
 ```
-curl https://bloxroute.regulated.blxrbdn.com/blxr/free_compliance_list
+curl https://<YOUR_URL>/<ENDPOINTNAME>
+```
+for example:
+```
+curl https://newprovidersite.com/free_list
 ```
 
 3) Simple auth if necessary (bearer token or api key only)
 
 ```
-curl https://bloxroute.regulated.blxrbdn.com/blxr/pro_compliance_list?access_token=123
+curl https://<YOUR_URL>/<ENDPOINTNAME>?access_token=123
 ```
+for example:
+```
+curl https://newprovidersite.com/pro_compliance_list?access_token=123
+```
+
+
+To summarize, providers just need to set up an endpoint that serves their compliance list as a JSON map of addresses. 
 
 ---
 
