@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	ssz "github.com/ferranbt/fastssz"
 )
 
 var errHTTPErrorResponse = errors.New("HTTP error response")
@@ -65,8 +67,36 @@ func SendSSZRequest(ctx context.Context, client http.Client, method, url string,
 	return resp.StatusCode, nil
 }
 
+func SendHTTPRequest(ctx context.Context, client http.Client, method, url string, payload, dst any, authHeader string) (code int, err error) {
+	statusCode, bodyBytes, err := sendRequest(ctx, client, method, url, payload, dst != nil, authHeader)
+	if err != nil || bodyBytes == nil || dst == nil {
+		return statusCode, err
+	}
+
+	err = json.Unmarshal(bodyBytes, dst)
+	if err != nil {
+		return statusCode, fmt.Errorf("could not unmarshal json response: %w", err)
+	}
+
+	return statusCode, nil
+}
+
+func SendHTTPRequestSSZResponse(ctx context.Context, client http.Client, method, url string, payload, dst ssz.Unmarshaler, authHeader string) (code int, err error) {
+	statusCode, bodyBytes, err := sendRequest(ctx, client, method, url, payload, dst != nil, authHeader)
+	if err != nil || bodyBytes == nil || dst == nil {
+		return statusCode, err
+	}
+
+	err = dst.UnmarshalSSZ(bodyBytes)
+	if err != nil {
+		return statusCode, fmt.Errorf("could not unmarshal ssz response: %w", err)
+	}
+
+	return statusCode, nil
+}
+
 // SendHTTPRequest - prepare and send HTTP request, marshaling the payload if any, and decoding the response if dst is set
-func SendHTTPRequest(ctx context.Context, client http.Client, method, url string, payload, dst any) (code int, err error) {
+func sendRequest(ctx context.Context, client http.Client, method, url string, payload any, readBody bool, authHeader string) (code int, bodyBytes []byte, err error) {
 	var req *http.Request
 
 	if payload == nil {
@@ -74,7 +104,7 @@ func SendHTTPRequest(ctx context.Context, client http.Client, method, url string
 	} else {
 		payloadBytes, err2 := json.Marshal(payload)
 		if err2 != nil {
-			return 0, fmt.Errorf("could not marshal request: %w", err2)
+			return 0, nil, fmt.Errorf("could not marshal request: %w", err2)
 		}
 		req, err = http.NewRequestWithContext(ctx, method, url, bytes.NewReader(payloadBytes))
 
@@ -82,38 +112,38 @@ func SendHTTPRequest(ctx context.Context, client http.Client, method, url string
 		req.Header.Add("Content-Type", "application/json")
 	}
 	if err != nil {
-		return 0, fmt.Errorf("could not prepare request: %w", err)
+		return 0, nil, fmt.Errorf("could not prepare request: %w", err)
+	}
+
+	if authHeader != "" {
+		req.Header.Add("Authorization", authHeader)
 	}
 
 	// Execute request
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNoContent {
-		return resp.StatusCode, nil
+		return resp.StatusCode, nil, nil
 	}
 
 	if resp.StatusCode > 299 {
-		bodyBytes, err := io.ReadAll(resp.Body)
+		bodyBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return resp.StatusCode, fmt.Errorf("could not read error response body for status code %d: %w", resp.StatusCode, err)
+			return resp.StatusCode, nil, fmt.Errorf("could not read error response body for status code %d: %w", resp.StatusCode, err)
 		}
-		return resp.StatusCode, fmt.Errorf("%w: %d / %s", errHTTPErrorResponse, resp.StatusCode, string(bodyBytes))
+		return resp.StatusCode, bodyBytes, fmt.Errorf("%w: %d / %s", errHTTPErrorResponse, resp.StatusCode, string(bodyBytes))
 	}
 
-	if dst != nil {
-		bodyBytes, err := io.ReadAll(resp.Body)
+	if readBody {
+		bodyBytes, err = io.ReadAll(resp.Body)
 		if err != nil {
-			return resp.StatusCode, fmt.Errorf("could not read response body: %w", err)
+			return resp.StatusCode, nil, fmt.Errorf("could not read response body: %w", err)
 		}
-
-		if err := json.Unmarshal(bodyBytes, dst); err != nil {
-			return resp.StatusCode, fmt.Errorf("could not unmarshal response %s: %w", string(bodyBytes), err)
-		}
+		return resp.StatusCode, bodyBytes, nil
 	}
-
-	return resp.StatusCode, nil
+	return resp.StatusCode, nil, nil
 }

@@ -76,7 +76,7 @@ func getRouter(localRelay *LocalRelay) http.Handler {
 	return loggedRouter
 }
 
-func getRelayConfig(endpoint string) (RelayConfig, error) {
+func getRelayConfig(endpoint string, bloxrouteAuthHeader string) (RelayConfig, error) {
 	configs := strings.Split(endpoint, ";")
 	if len(configs) == 0 {
 		return RelayConfig{}, fmt.Errorf("empty relay endpoint %s", endpoint)
@@ -84,7 +84,7 @@ func getRelayConfig(endpoint string) (RelayConfig, error) {
 	relayUrl := configs[0]
 	// relay endpoint is configurated in the format URL;ssz=<value>;gzip=<value>
 	// if any of them are missing, we default the config value to false
-	var sszEnabled, gzipEnabled bool
+	var sszEnabled, gzipEnabled, complianceListsEnabled bool
 	var err error
 
 	for _, config := range configs {
@@ -98,12 +98,19 @@ func getRelayConfig(endpoint string) (RelayConfig, error) {
 			if err != nil {
 				log.Info("invalid gzip config for relay", "endpoint", endpoint, "err", err)
 			}
+		} else if strings.HasPrefix(config, "complianceLists=") {
+			complianceListsEnabled, err = strconv.ParseBool(config[16:])
+			if err != nil {
+				log.Info("invalid compliance list config for relay", "endpoint", endpoint, "err", err)
+			}
 		}
 	}
 	return RelayConfig{
-		Endpoint:    relayUrl,
-		SszEnabled:  sszEnabled,
-		GzipEnabled: gzipEnabled,
+		Endpoint:               relayUrl,
+		SszEnabled:             sszEnabled,
+		GzipEnabled:            gzipEnabled,
+		ComplianceListsEnabled: complianceListsEnabled,
+		BloxrouteAuthHeader:    bloxrouteAuthHeader,
 	}, nil
 }
 
@@ -182,7 +189,7 @@ func Register(stack *node.Node, backend *eth.Ethereum, cfg *Config) error {
 
 	var relay IRelay
 	if cfg.RemoteRelayEndpoint != "" {
-		relayConfig, err := getRelayConfig(cfg.RemoteRelayEndpoint)
+		relayConfig, err := getRelayConfig(cfg.RemoteRelayEndpoint, cfg.BloxrouteAuthHeader)
 		if err != nil {
 			return fmt.Errorf("invalid remote relay endpoint: %w", err)
 		}
@@ -196,7 +203,7 @@ func Register(stack *node.Node, backend *eth.Ethereum, cfg *Config) error {
 	if len(cfg.SecondaryRemoteRelayEndpoints) > 0 && !(len(cfg.SecondaryRemoteRelayEndpoints) == 1 && cfg.SecondaryRemoteRelayEndpoints[0] == "") {
 		secondaryRelays := make([]IRelay, len(cfg.SecondaryRemoteRelayEndpoints))
 		for i, endpoint := range cfg.SecondaryRemoteRelayEndpoints {
-			relayConfig, err := getRelayConfig(endpoint)
+			relayConfig, err := getRelayConfig(endpoint, cfg.BloxrouteAuthHeader)
 			if err != nil {
 				return fmt.Errorf("invalid secondary remote relay endpoint: %w", err)
 			}

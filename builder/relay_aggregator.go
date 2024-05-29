@@ -104,14 +104,16 @@ func (r *RemoteRelayAggregator) updateRelayRegistrations(nextSlot uint64, regist
 	registrations := make([]*RelayValidatorRegistration, 0, len(r.relays))
 	bestRelayIndex := len(r.relays)  // relay index of the topmost relay that gave us the registration
 	bestRelayRegistrationIndex := -1 // index into the registrations for the registration returned by topmost relay
+	complianceList := ""
 	for i := 0; i < len(r.relays); i++ {
 		relayRegistration := <-registrationsCh
 		if relayRegistration != nil {
-			registrations = append(registrations, relayRegistration)
-			// happy path for primary
-			if relayRegistration.relayI == 0 {
-				topRegistrationCh <- relayRegistration.vd
+			if complianceList == "" && relayRegistration.vd.ComplianceList != "" {
+				complianceList = relayRegistration.vd.ComplianceList
 			}
+
+			registrations = append(registrations, relayRegistration)
+
 			if relayRegistration.relayI < bestRelayIndex {
 				bestRelayIndex = relayRegistration.relayI
 				bestRelayRegistrationIndex = len(registrations) - 1
@@ -123,10 +125,13 @@ func (r *RemoteRelayAggregator) updateRelayRegistrations(nextSlot uint64, regist
 		return
 	}
 
-	if bestRelayIndex != 0 {
-		// if bestRelayIndex == 0 it was already sent
-		topRegistrationCh <- registrations[bestRelayRegistrationIndex].vd
+	// attach relevant compliance list to all registrations
+	for _, relayRegistration := range registrations {
+		relayRegistration.vd.ComplianceList = complianceList
 	}
+
+	// send registration from topmost relay
+	topRegistrationCh <- registrations[bestRelayRegistrationIndex].vd
 
 	if nextSlot == r.registrationsCacheSlot {
 		return

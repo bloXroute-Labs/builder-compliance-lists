@@ -12,6 +12,7 @@ import (
 	builderSpec "github.com/attestantio/go-builder-client/spec"
 	"github.com/attestantio/go-eth2-client/spec"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/ofac"
 	"github.com/flashbots/go-boost-utils/utils"
 )
 
@@ -44,8 +45,16 @@ func NewRemoteRelay(config RelayConfig, localRelay *LocalRelay, cancellationsEna
 
 	err := r.updateValidatorsMap(0, 3)
 	if err != nil {
-		log.Error("could not connect to remote relay, continuing anyway", "err", err)
+		log.Error("could not connect to remote relay to update validators map, continuing anyway", "err", err)
 	}
+
+	if r.config.ComplianceListsEnabled {
+		err = r.updateComplianceLists(0, 3)
+		if err != nil {
+			log.Error("could not connect to remote relay to update compliance lists, continuing anyway", "err", err)
+		}
+	}
+
 	return r
 }
 
@@ -60,6 +69,7 @@ type GetValidatorRelayResponse []struct {
 		} `json:"message"`
 		Signature string `json:"signature"`
 	} `json:"entry"`
+	ComplianceList string `json:"compliance_list"`
 }
 
 func (r *RemoteRelay) updateValidatorsMap(currentSlot uint64, retries int) error {
@@ -71,7 +81,7 @@ func (r *RemoteRelay) updateValidatorsMap(currentSlot uint64, retries int) error
 	r.validatorSyncOngoing = true
 	r.validatorsLock.Unlock()
 
-	log.Info("requesting ", "currentSlot", currentSlot)
+	log.Info("requesting validators", "currentSlot", currentSlot)
 	newMap, err := r.getSlotValidatorMapFromRelay()
 	for err != nil && retries > 0 {
 		log.Error("could not get validators map from relay, retrying", "err", err)
@@ -95,17 +105,59 @@ func (r *RemoteRelay) updateValidatorsMap(currentSlot uint64, retries int) error
 	return nil
 }
 
+func (r *RemoteRelay) updateComplianceLists(currentSlot uint64, retries int) error {
+	// determine which compliance lists we need to request by looking at the current validator slot map
+	listsToRequest := make(map[string]bool)
+	r.validatorsLock.RLock()
+	for _, data := range r.validatorSlotMap {
+		if data.ComplianceList != "" {
+			listsToRequest[data.ComplianceList] = true
+		}
+	}
+	r.validatorsLock.RUnlock()
+
+	if len(listsToRequest) == 0 {
+		log.Info("skipping compliance list update, no validator requested a compliance list this epoch", "currentSlot", currentSlot)
+		return nil
+	}
+
+	log.Info("requesting compliance lists", "currentSlot", currentSlot)
+	newRegistry, err := r.getComplianceListsMapFromRelay(listsToRequest)
+	for err != nil && retries > 0 {
+		log.Error("could not get compliance lists from relay, retrying", "err", err)
+		time.Sleep(time.Second)
+		newRegistry, err = r.getComplianceListsMapFromRelay(listsToRequest)
+		retries -= 1
+	}
+	if err != nil {
+		log.Error("could not get compliance lists from relay", "err", err)
+		return err
+	}
+
+	ofac.UpdateComplianceLists(newRegistry)
+
+	log.Info("Updated compliance lists", "count", len(newRegistry), "slot", currentSlot)
+	return nil
+}
+
 func (r *RemoteRelay) GetValidatorForSlot(nextSlot uint64) (ValidatorData, error) {
 	// next slot is expected to be the actual chain's next slot, not something requested by the user!
 	// if not sanitized it will force resync of validator data and possibly is a DoS vector
 
 	r.validatorsLock.RLock()
 	if r.lastRequestedSlot == 0 || nextSlot/32 > r.lastRequestedSlot/32 {
-		// Every epoch request validators map
+		// Every epoch request validators map and update compliance lists
 		go func() {
 			err := r.updateValidatorsMap(nextSlot, 1)
 			if err != nil {
 				log.Error("could not update validators map", "err", err)
+			}
+
+			if r.config.ComplianceListsEnabled {
+				err = r.updateComplianceLists(nextSlot, 1)
+				if err != nil {
+					log.Error("could not update compliance lists", "err", err)
+				}
 			}
 		}()
 	}
@@ -163,11 +215,11 @@ func (r *RemoteRelay) SubmitBlock(msg *builderSpec.VersionedSubmitBlockRequest, 
 	} else {
 		switch msg.Version {
 		case spec.DataVersionBellatrix:
-			code, err = SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodPost, endpoint, msg.Bellatrix, nil)
+			code, err = SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodPost, endpoint, msg.Bellatrix, nil, "")
 		case spec.DataVersionCapella:
-			code, err = SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodPost, endpoint, msg.Capella, nil)
+			code, err = SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodPost, endpoint, msg.Capella, nil, "")
 		case spec.DataVersionDeneb:
-			code, err = SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodPost, endpoint, msg.Deneb, nil)
+			code, err = SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodPost, endpoint, msg.Deneb, nil, "")
 		default:
 			return fmt.Errorf("unknown data version %d", msg.Version)
 		}
@@ -185,7 +237,7 @@ func (r *RemoteRelay) SubmitBlock(msg *builderSpec.VersionedSubmitBlockRequest, 
 
 func (r *RemoteRelay) getSlotValidatorMapFromRelay() (map[uint64]ValidatorData, error) {
 	var dst GetValidatorRelayResponse
-	code, err := SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodGet, r.config.Endpoint+"/relay/v1/builder/validators", nil, &dst)
+	code, err := SendHTTPRequest(context.TODO(), *http.DefaultClient, http.MethodGet, r.config.Endpoint+"/relay/v1/builder/validators", nil, &dst, "")
 	if err != nil {
 		return nil, err
 	}
@@ -205,13 +257,37 @@ func (r *RemoteRelay) getSlotValidatorMapFromRelay() (map[uint64]ValidatorData, 
 		pubkeyHex := PubkeyHex(strings.ToLower(data.Entry.Message.Pubkey))
 
 		res[data.Slot] = ValidatorData{
-			Pubkey:       pubkeyHex,
-			FeeRecipient: feeRecipient,
-			GasLimit:     data.Entry.Message.GasLimit,
+			Pubkey:         pubkeyHex,
+			FeeRecipient:   feeRecipient,
+			GasLimit:       data.Entry.Message.GasLimit,
+			ComplianceList: data.ComplianceList,
 		}
 	}
 
 	return res, nil
+}
+
+func (r *RemoteRelay) getComplianceListsMapFromRelay(listsToRequest map[string]bool) (ofac.ComplianceRegistry, error) {
+	url := fmt.Sprintf("%v/blxr/compliance_lists?", r.config.Endpoint)
+	// add a query parameter for each list we need to request
+	for key := range listsToRequest {
+		if strings.Contains(url, "list=") {
+			url += "&"
+		}
+		url += fmt.Sprintf("list=%s", key)
+	}
+
+	dst := make(ofac.ComplianceRegistry)
+	code, err := SendHTTPRequestSSZResponse(context.TODO(), *http.DefaultClient, http.MethodGet, url, nil, &dst, r.config.BloxrouteAuthHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	if code > 299 {
+		return nil, fmt.Errorf("non-ok response code %d from relay", code)
+	}
+
+	return dst, nil
 }
 
 func (r *RemoteRelay) Config() RelayConfig {

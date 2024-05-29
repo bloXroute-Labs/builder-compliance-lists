@@ -29,6 +29,7 @@ type Config struct {
 	BuilderSubmissionOffset          time.Duration `toml:",omitempty"`
 	DiscardRevertibleTxOnErr         bool          `toml:",omitempty"`
 	EnableCancellations              bool          `toml:",omitempty"`
+	BloxrouteAuthHeader              string        `toml:",omitempty"`
 	BlockProcessorURL                string        `toml:",omitempty"`
 }
 
@@ -62,7 +63,9 @@ var DefaultConfig = Config{
 
 // RelayConfig is the config for a single remote relay.
 type RelayConfig struct {
-	Endpoint    string
-	SszEnabled  bool
-	GzipEnabled bool
+	Endpoint               string
+	SszEnabled             bool
+	GzipEnabled            bool
+	ComplianceListsEnabled bool
+	BloxrouteAuthHeader    string
 }

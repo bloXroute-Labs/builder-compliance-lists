@@ -48,9 +48,10 @@ const (
 type PubkeyHex string
 
 type ValidatorData struct {
-	Pubkey       PubkeyHex
-	FeeRecipient bellatrix.ExecutionAddress
-	GasLimit     uint64
+	Pubkey         PubkeyHex
+	FeeRecipient   bellatrix.ExecutionAddress
+	GasLimit       uint64
+	ComplianceList string
 }
 
 type IRelay interface {
@@ -275,11 +276,11 @@ func (b *Builder) onSealedBlock(opts SubmitBlockOpts) error {
 	if b.dryRun {
 		switch dataVersion {
 		case spec.DataVersionBellatrix:
-			err = b.validator.ValidateBuilderSubmissionV1(&blockvalidation.BuilderBlockValidationRequest{SubmitBlockRequest: *versionedBlockRequest.Bellatrix, RegisteredGasLimit: opts.ValidatorData.GasLimit})
+			err = b.validator.ValidateBuilderSubmissionV1(&blockvalidation.BuilderBlockValidationRequest{SubmitBlockRequest: *versionedBlockRequest.Bellatrix, RegisteredGasLimit: opts.ValidatorData.GasLimit, ComplianceList: opts.PayloadAttributes.ComplianceList})
 		case spec.DataVersionCapella:
-			err = b.validator.ValidateBuilderSubmissionV2(&blockvalidation.BuilderBlockValidationRequestV2{SubmitBlockRequest: *versionedBlockRequest.Capella, RegisteredGasLimit: opts.ValidatorData.GasLimit})
+			err = b.validator.ValidateBuilderSubmissionV2(&blockvalidation.BuilderBlockValidationRequestV2{SubmitBlockRequest: *versionedBlockRequest.Capella, RegisteredGasLimit: opts.ValidatorData.GasLimit, ComplianceList: opts.PayloadAttributes.ComplianceList})
 		case spec.DataVersionDeneb:
-			err = b.validator.ValidateBuilderSubmissionV3(&blockvalidation.BuilderBlockValidationRequestV3{SubmitBlockRequest: *versionedBlockRequest.Deneb, RegisteredGasLimit: opts.ValidatorData.GasLimit, ParentBeaconBlockRoot: *opts.Block.BeaconRoot()})
+			err = b.validator.ValidateBuilderSubmissionV3(&blockvalidation.BuilderBlockValidationRequestV3{SubmitBlockRequest: *versionedBlockRequest.Deneb, RegisteredGasLimit: opts.ValidatorData.GasLimit, ParentBeaconBlockRoot: *opts.Block.BeaconRoot(), ComplianceList: opts.PayloadAttributes.ComplianceList})
 		}
 		if err != nil {
 			log.Error("could not validate block", "version", dataVersion.String(), "err", err)
@@ -380,6 +381,7 @@ func (b *Builder) OnPayloadAttribute(attrs *types.BuilderPayloadAttributes) erro
 
 	attrs.SuggestedFeeRecipient = [20]byte(vd.FeeRecipient)
 	attrs.GasLimit = core.CalcGasLimit(parentBlock.GasLimit(), vd.GasLimit)
+	attrs.ComplianceList = vd.ComplianceList
 
 	proposerPubkey, err := utils.HexToPubkey(string(vd.Pubkey))
 	if err != nil {
